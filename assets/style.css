@@ -1,0 +1,79 @@
+.custom-select {
+    background-color: #272b30 !important;
+    color: white !important;
+    border-color: #6c757d !important;
+}
+
+
+#date-picker-range div {
+    background-color: #272b30 !important;
+    color: white !important;
+    border-color: #6c757d !important;
+}
+
+#date-picker-range input {
+    background-color: #272b30 !important;
+    color: white !important;
+    border-color: #6c757d !important;
+    font-size: 14px !important;
+}
+.custom-date-picker {
+    display: inline-block;
+    font-size: 8px;  
+}
+
+.custom-date-picker .DateInput {
+    display: inline-block !important;
+}
+
+.custom-date-picker .DateRangePickerInput_arrow {
+    display: inline-block !important;
+    vertical-align: middle !important;
+}
+
+.banner {
+    padding: 3rem 0;
+    width: 100%;
+}
+
+.banner a {
+    text-decoration: none !important;
+}
+
+.banner h2 a {
+    color: #7adfee;
+    display: inline-block;
+    font-size: 3rem;
+    font-family: 'Helvetica', sans-serif;
+    line-height: 1;
+    text-align: left;
+    text-transform: uppercase;
+    margin-left:30px ;
+    margin-top:0;
+}
+
+.banner h2 a:hover {
+    color: #f9f9f4;
+    cursor: pointer;
+}
+
+.filter_label {
+    font-size: 14px; 
+}
+
+.sidebar {
+    top: 0;
+    left: 20px;
+    bottom: 0;
+    padding: 2rem 1rem;
+    background-color: #272b30;
+}
+
+#reset-button {
+    border: none;
+}
+
+.reset-button-img:hover {
+    opacity: 0.5;
+    cursor: pointer;
+}
