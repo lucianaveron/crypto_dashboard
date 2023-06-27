@@ -1,5 +1,5 @@
 # Crypto Dashboard
----
+
 ## About this app
 This dashboard allows you to explore diferents cryptocurrencies and its statistics.
 
@@ -9,7 +9,7 @@ First you have to choose one asset, and then the kind of graph you would like to
 * "Comparative Returns", where you also see a boxplot comparison between the BTC/USDT returns and the asset selected.
 
 ## How to run this app
-We suggest you to create a virtual environment for running this app with Python 3. Clone this repository and open your terminal/command prompt in the root folder.
+I suggest you to create a virtual environment for running this app with Python 3. Clone this repository and open your terminal/command prompt in the root folder.
 
 ```bash
 git clone https://github.com/lucianaveron/crypto_dashboard

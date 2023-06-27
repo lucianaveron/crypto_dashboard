@@ -1,11 +1,14 @@
 from dash import Dash, dcc, html, Input, Output, exceptions
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
+from plotly.subplots import make_subplots
 import binance_data 
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
+import plotly.express as px
 from datetime import datetime as dt
 import numpy as np
+import pandas as pd
 import scipy.stats as stats
 from scipy.stats import johnsonsu
 
@@ -33,8 +36,8 @@ sidebar = html.Div(
                     dbc.Select(
                     id="dropdown-select-asset",
                     options=[
-                        {'label': 'ETHUSDT', 'value': 'ETHUSDT'},
-                        {'label': 'BTCUSDT', 'value': 'BTCUSDT'}],
+                        {'label': 'ETH/USDT', 'value': 'ETHUSDT'},
+                        {'label': 'BTC/USDT', 'value': 'BTCUSDT'}],
                     value='ETHUSDT',                                   
                 )
                 ]),
@@ -101,12 +104,39 @@ card_content_right = [
         ])
 ]
 
+card_content_boxplot = [
+    dbc.CardHeader("Description"),
+    dbc.CardBody(
+        [
+        dcc.Markdown(
+                '''
+                The graph above shows the distribution of the daily returns for the selected asset
+                in contrast with the BTC/USDT returns.
+
+                The **Box Plot** provides a statistical summary of the median, quartiles, and outliers.
+                The box part of the boxplot represents the interquartile range (IQR), which is the middle 50% of the dataset 
+                (i.e., the range from the 25th percentile to the 75th percentile). The line in the middle of the box is the
+                 median of the dataset.The whiskers represent the range of the data within 1.5 times the IQR from the box.
+                 Any points outside of this range are typically considered outliers and can be plotted as individual points.
+
+                The **Histogram** shows the nature of the returns distribution. 
+                The x-axis represents the returns and the y-axis represents the frequency of the returns.
+                '''
+            )
+        ])
+]
 card_row = dbc.Row([
     dbc.Col(dbc.Card(card_content_left, color="dark", outline=True)),
     dbc.Col(dbc.Card(card_content_right, color="dark", outline=True),
             style={'marginRight': '200px'})
     ],
     id='bottom-row')
+
+card_row_boxplot = dbc.Row([
+    dbc.Col(dbc.Card(card_content_boxplot, color="dark", outline=True),
+            style={'marginRight': '200px'})
+    ],
+    id='bottom-row-boxplot')
 
 def calculate_var(returns, confidence_level=0.05):
     var_hist = np.percentile(returns, 100 * confidence_level)
@@ -142,10 +172,12 @@ app.layout = html.Div([
 
                         dcc.Graph(id='graph', style={'marginTop': '-30px', 'marginBottom': '-50px'}),
                         rangeslider, 
-                        card_row   
+                        card_row,
+                        card_row_boxplot   
                     ])
                 ])                    
 ])
+
 
 @app.callback(
     Output('date-picker-range', 'start_date'),
@@ -207,12 +239,32 @@ def update_figure(selected_asset, start_date, end_date, slider, graph_type):
                             title=f'{selected_asset} Daily Log Return Histogram (in %)')
         
     elif graph_type == 'comparative':
-        returns = [(np.log(filtered_df['Close']/filtered_df['Close'].shift(1))*100).dropna()]
-        fig = ff.create_distplot(returns,
-        group_labels=['Log Return (in %)'])
-        fig.update_layout(transition_duration=500,
-                            height=600,
-                            title=f'{selected_asset} Return Histogram 2222')
+        returns = (np.log(filtered_df['Close']/filtered_df['Close'].shift(1))*100).dropna()
+        btc_returns = (np.log(df['BTCUSDT']['Close']/df['BTCUSDT']['Close'].shift(1))*100).dropna()
+        data = pd.DataFrame({'returns': returns, 'BTCUSDT Returns': btc_returns})
+        color_dict = {'returns': 'red', 'BTCUSDT Returns': 'green'}
+        
+        fig = make_subplots(rows=2, cols=1)
+
+        for col in ['returns', 'BTCUSDT Returns']:
+            display_name = f'{selected_asset} Returns' if col == 'returns' else col
+            fig.add_trace(go.Box(x=data[col], name=display_name, boxpoints='outliers',
+                                 marker_color=color_dict[col]), row=1, col=1)
+            fig.add_trace(go.Histogram(x=data[col], histnorm='probability density', 
+                                       name=display_name, nbinsx=50, opacity=0.75, marker_color=color_dict[col]),
+                                       row=2, col=1)
+            
+
+        fig.update_layout(transition_duration=500, height=600, width=1500, title_text="Overlaid Histogram and Boxplot")
+        fig.update_yaxes(title_text="Frequency", row=1, col=1)
+        fig.update_yaxes(title_text="Value", row=2, col=1)
+       # fig = px.histogram(data, x='returns', y='returns_btc',
+                           
+                           #histnorm='probability density',
+                           #opacity=0.75, marginal='box')
+      #  fig.update_layout(transition_duration=500,
+                            #height=600,
+                            #title=f'{selected_asset} Return Histogram ')
     else:
         raise exceptions.PreventUpdate
 
@@ -232,6 +284,15 @@ def update_slider_visibility(graph_type):
     Input('type-of-graph', 'value'))
 def update_bottom_row_visibility(graph_type):
     if graph_type == 'histogram':
+        return {'right': '100px', 'z-index': '999'}
+    else:
+        return {'display': 'none'}
+
+@app.callback(
+    Output('bottom-row-boxplot', 'style'),
+    Input('type-of-graph', 'value'))
+def update_bottom_row_visibility(graph_type):
+    if graph_type == 'comparative':
         return {'right': '100px', 'z-index': '999'}
     else:
         return {'display': 'none'}
