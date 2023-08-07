@@ -14,7 +14,6 @@ I suggest you to create a virtual environment for running this app with Python 3
 ```bash
 git clone https://github.com/lucianaveron/crypto_dashboard
 python3 -m virtualenv venv
-
 ```
 
 In Unix system:
@@ -34,9 +33,14 @@ pip install -r requirements.txt
 
 Run this app locally with:
 ```bash
-python app.py
+python app.py 
 ```
+## Tools used in the project
+In this project I made use of the following tools:
 
-
+* Creating a dashboard using the library Dash.
+* To visualize the dashboard, you can run it local in a integrated terminal, or to open it online, you can click in the following link
+As an online dashboard, it is hosted in Google - Cloud Run, which let us Build and deploy scalable containerized apps.
+In order to this, first I cloned this repository, builded the image and uploaded to the "Cointainer Registry"
 
 
