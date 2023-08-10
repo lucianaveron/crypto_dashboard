@@ -1,26 +1,31 @@
 from dash import Dash, dcc, html, Input, Output, exceptions
 import plotly.graph_objects as go
-import plotly.figure_factory as ff
 from plotly.subplots import make_subplots
-import binance_data 
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
-import plotly.express as px
-from datetime import datetime as dt
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
 from scipy.stats import johnsonsu
+import boto3
 
-# Download data
-bd = binance_data.BinanceData()
+s3_client = boto3.client('s3')
 
-df = {
-    'ETHUSDT': bd.get_data('ETHUSDT'),
-    'BTCUSDT': bd.get_data('BTCUSDT')
-}
+asset_list = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT',
+              'DOGEUSDT', 'TRXUSDT', 'SOLUSDT', 'LTCUSDT', 'DOTUSDT',
+              'MATICUSDT', 'BCHUSDT', 'AVAXUSDT', 'SHIBUSDT', 'LINKUSDT',
+              'ATOMUSDT', 'XMRUSDT', 'UNIUSDT', 'VETUSDT', 'FILUSDT']
 
-# Upload template 
+bucket_name = 'cryptobucketbinance'
+
+df = {}
+for asset in asset_list:
+    df[asset] = pd.read_csv(
+        f"s3://{bucket_name}/{asset}.csv", index_col=0, parse_dates=True)
+
+dict_asset = [{'label': asset, 'value': asset} for asset in asset_list]
+
+# Upload template
 load_figure_template('SLATE')
 external_stylesheets = [dbc.themes.SLATE]
 
@@ -28,32 +33,30 @@ external_stylesheets = [dbc.themes.SLATE]
 sidebar = html.Div(
     [
         html.H4("Filters"),
-        html.Hr(),   
+        html.Hr(),
         dbc.Nav(
             [
                 html.Div([
                     html.P("Select an asset:", className="filter_label"),
                     dbc.Select(
-                    id="dropdown-select-asset",
-                    options=[
-                        {'label': 'ETH/USDT', 'value': 'ETHUSDT'},
-                        {'label': 'BTC/USDT', 'value': 'BTCUSDT'}],
-                    value='ETHUSDT',                                   
-                )
+                        id="dropdown-select-asset",
+                        options=dict_asset,
+                        value='ETHUSDT',
+                    )
                 ]),
                 html.Br(),
                 html.Div([
                     html.P("Type of graph:", className="filter_label"),
                     dbc.RadioItems(
-                    id="type-of-graph",
-                    options=[
-                        {'label': 'Candlestick Chart', 'value': 'candlestick'},
-                        {'label': 'Return Histogram', 'value': 'histogram'},
-                        {'label': 'Comparative Returns', 'value': 'comparative'}],
-                    value='candlestick',
-                    class_name="mb-3 custom-select"                                    
-                )
-                ]),                  
+                        id="type-of-graph",
+                        options=[
+                            {'label': 'Candlestick Chart', 'value': 'candlestick'},
+                            {'label': 'Return Histogram', 'value': 'histogram'},
+                            {'label': 'Comparative Returns', 'value': 'comparative'}],
+                        value='candlestick',
+                        class_name="mb-3 custom-select"
+                    )
+                ]),
             ],
             vertical=True,
             pills=True,
@@ -69,13 +72,13 @@ date_picker_ranger = dcc.DatePickerRange(
     className="custom-date-picker")
 
 reset_button = dbc.Button(
-    html.Img(src='/assets/reset_icon.png', 
-             style={'width': '20px', 'height': '20px'}), 
+    html.Img(src='/assets/reset_icon.png',
+             style={'width': '20px', 'height': '20px'}),
     className="reset-button-img",
-    id='reset-button', 
+    id='reset-button',
     n_clicks=0,
-    color = 'transparent',
-    size = 'sm')
+    color='transparent',
+    size='sm')
 
 rangeslider = dcc.Checklist(
     id='toggle-rangeslider',
@@ -92,15 +95,17 @@ card_content_right = [
     dbc.CardHeader("Value at Risk (VaR) Model"),
     dbc.CardBody(
         [
-        dcc.Markdown(
+            dcc.Markdown(
                 '''
-                Value at risk (VaR) is a statistic measure that quantifies the extent of possible 
-                financial losses within a portfolio. In this model, we calculate the VaR 
-                using three different methods: historical and parametrical (Normal and Johnson SU distribution).
-                It represents the maximum loss with a probability of 95% (confidence level) on a daily return basis.
+                Value at risk (VaR) is a statistic measure that quantifies the 
+                extent of possible financial losses within a portfolio. In this
+                model, we calculate the VaR using three different methods: 
+                historical and parametrical (Normal and Johnson SU distribution).
+                It represents the maximum loss with a probability of 95% 
+                (confidence level) on a daily return basis.
                 '''
             ),
-        html.P(id='var-model', style={'line-height': '0.75'})
+            html.P(id='var-model', style={'line-height': '0.75'})
         ])
 ]
 
@@ -108,19 +113,24 @@ card_content_boxplot = [
     dbc.CardHeader("Description"),
     dbc.CardBody(
         [
-        dcc.Markdown(
+            dcc.Markdown(
                 '''
-                The graph above shows the distribution of the daily returns for the selected asset
-                in contrast with the BTC/USDT returns.
+                The graph above shows the distribution of the daily returns for
+                the selected asset in contrast with the BTC/USDT returns.
 
-                The **Box Plot** provides a statistical summary of the median, quartiles, and outliers.
-                The box part of the boxplot represents the interquartile range (IQR), which is the middle 50% of the dataset 
-                (i.e., the range from the 25th percentile to the 75th percentile). The line in the middle of the box is the
-                 median of the dataset.The whiskers represent the range of the data within 1.5 times the IQR from the box.
-                 Any points outside of this range are typically considered outliers and can be plotted as individual points.
+                The **Box Plot** provides a statistical summary of the median, 
+                quartiles, and outliers. The box part of the boxplot represents
+                the interquartile range (IQR), which is the middle 50% of the 
+                dataset (i.e., the range from the 25th percentile to the 75th 
+                percentile). The line in the middle of the box is the median of
+                the dataset.The whiskers represent the range of the data within
+                1.5 times the IQR from the box. Any points outside of this 
+                range are typically considered outliers and can be plotted as 
+                individual points.
 
                 The **Histogram** shows the nature of the returns distribution. 
-                The x-axis represents the returns and the y-axis represents the frequency of the returns.
+                The x-axis represents the returns and the y-axis represents the
+                frequency of the returns.
                 '''
             )
         ])
@@ -129,14 +139,15 @@ card_row = dbc.Row([
     dbc.Col(dbc.Card(card_content_left, color="dark", outline=True)),
     dbc.Col(dbc.Card(card_content_right, color="dark", outline=True),
             style={'marginRight': '200px'})
-    ],
+],
     id='bottom-row')
 
 card_row_boxplot = dbc.Row([
     dbc.Col(dbc.Card(card_content_boxplot, color="dark", outline=True),
             style={'marginRight': '200px'})
-    ],
+],
     id='bottom-row-boxplot')
+
 
 def calculate_var(returns, confidence_level=0.05):
     var_hist = np.percentile(returns, 100 * confidence_level)
@@ -149,47 +160,59 @@ def calculate_var(returns, confidence_level=0.05):
     var_js = dist.ppf(confidence_level)
     return var_hist, var_normal, var_js
 
+
 # Create the layout
 app = Dash(__name__, external_stylesheets=external_stylesheets)
 app.title = "Crypto Dashboard"
 
 app.layout = html.Div([
-                dbc.Row([
-                    dbc.Col(className="banner", 
-                            children=[html.H2(
-                                html.A('Crypto Dashboard',
-                                       href='https://github.com/lucianaveron/crypto_dashboard')
-                                       )]
-                            ),
-                    dbc.Col()                                 
-                    ]),
-                dbc.Row(
-                    [dbc.Col(sidebar, width=2),
-                    dbc.Col([
-                        html.Div([date_picker_ranger,
-                                  reset_button                                
-                        ], style={'position': 'absolute', 'right': '80px', 'z-index': '999'}),
+    dbc.Row([
+        dbc.Col(className="banner",
+                children=[html.H2(
+                    html.A('Crypto Dashboard',
+                           href='https://github.com/lucianaveron/crypto_dashboard')
+                )]
+                ),
+        dbc.Col()
+    ]),
+    dbc.Row(
+        [dbc.Col(sidebar, width=2),
+         dbc.Col([
+             html.Div([date_picker_ranger,
+                       reset_button
+                       ], style={'position': 'absolute', 'right': '80px', 
+                                 'z-index': '999'}),
 
-                        dcc.Graph(id='graph', style={'marginTop': '-30px', 'marginBottom': '-50px'}),
-                        rangeslider, 
-                        card_row,
-                        card_row_boxplot   
-                    ])
-                ])                    
+             dcc.Graph(id='graph', style={
+                 'marginTop': '-30px', 'marginBottom': '-50px'}),
+             rangeslider,
+             card_row,
+             card_row_boxplot
+         ])
+         ])
 ])
 
 
 @app.callback(
-    Output('date-picker-range', 'start_date'),
-    Output('date-picker-range', 'end_date'),
-    Input('reset-button', 'n_clicks')
+    [Output('date-picker-range', 'min_date_allowed'),
+     Output('date-picker-range', 'max_date_allowed'),
+     Output('date-picker-range', 'start_date'),
+     Output('date-picker-range', 'end_date')],
+    [Input('dropdown-select-asset', 'value'),
+     Input('reset-button', 'n_clicks')]
 )
-def reset_date_picker(n_clicks):
+def update_date_picker(selected_asset, n_clicks):
+    min_date = df[selected_asset].index.min()
+    max_date = df[selected_asset].index.max() 
+
     if n_clicks > 0:
-        return df[list(df.keys())[0]].index[0], df[list(df.keys())[0]].index[-1]
+        start_date = min_date
+        end_date = max_date
+        return min_date, max_date, start_date, end_date
     else:
         raise exceptions.PreventUpdate
-    
+
+
 @app.callback(
     Output('graph', 'figure'),
     Input('dropdown-select-asset', 'value'),
@@ -200,8 +223,9 @@ def reset_date_picker(n_clicks):
 def update_figure(selected_asset, start_date, end_date, slider, graph_type):
     filtered_df = df[selected_asset]
     if start_date and end_date:
-        filtered_df = filtered_df.loc[(filtered_df.index >= start_date) & (filtered_df.index <= end_date)]
-    
+        filtered_df = filtered_df.loc[(filtered_df.index >= start_date) & (
+            filtered_df.index <= end_date)]
+
     if graph_type == 'candlestick':
         fig = go.Figure(data=[go.Candlestick(
             x=filtered_df.index,
@@ -215,7 +239,7 @@ def update_figure(selected_asset, start_date, end_date, slider, graph_type):
                           title=f'{selected_asset} Candlestick Chart'
                           )
     elif graph_type == 'histogram':
-        returns = (np.log(filtered_df['Close']/filtered_df['Close'].shift(1))*100).dropna()
+        returns = filtered_df['log_return']
         mu, sigma = stats.norm.fit(returns)
         x = np.linspace(min(returns), max(returns), len(returns))
         y = stats.norm.pdf(x, mu, sigma)
@@ -225,50 +249,51 @@ def update_figure(selected_asset, start_date, end_date, slider, graph_type):
         y_js = johnsonsu.pdf(x_js, a, b, loc, scale)
 
         fig = go.Figure()
-        fig.add_trace(go.Histogram(x=returns, nbinsx=50, histnorm='probability density',
+        fig.add_trace(go.Histogram(x=returns, histnorm='probability density',
                                    opacity=0.75, name='Logarithmic Returns'))
-        fig.add_trace(go.Scatter(x=x, y=y, mode='lines', name='Normal Distribution'))
-        fig.add_trace(go.Scatter(x=[mu - sigma, mu - sigma], y=[0, max(y)], mode='lines', name='-1 Std Dev', line=dict(color='red')))
-        fig.add_trace(go.Scatter(x=[mu + sigma, mu + sigma], y=[0, max(y)], mode='lines', name='+1 Std Dev', line=dict(color='red')))
-        
+        fig.add_trace(go.Scatter(x=x, y=y, mode='lines',
+                      name='Normal Distribution'))
+        fig.add_trace(go.Scatter(x=[mu - sigma, mu - sigma], y=[0, max(y)],
+                      mode='lines', name='-1 Std Dev', line=dict(color='red')))
+        fig.add_trace(go.Scatter(x=[mu + sigma, mu + sigma], y=[0, max(y)],
+                      mode='lines', name='+1 Std Dev', line=dict(color='red')))
+
         fig.add_trace(go.Scatter(x=x_js, y=y_js,
-                                  mode='lines', name='Johnsonsu Distribution'))
-        
+                                 mode='lines', name='Johnsonsu Distribution'))
+
         fig.update_layout(transition_duration=500,
-                            height=600,
-                            title=f'{selected_asset} Daily Log Return Histogram (in %)')
-        
+                          height=600,
+                          title=f'{selected_asset} Daily Log Return Histogram (in %)')
+
     elif graph_type == 'comparative':
-        returns = (np.log(filtered_df['Close']/filtered_df['Close'].shift(1))*100).dropna()
-        btc_returns = (np.log(df['BTCUSDT']['Close']/df['BTCUSDT']['Close'].shift(1))*100).dropna()
-        data = pd.DataFrame({'returns': returns, 'BTCUSDT Returns': btc_returns})
+        returns = filtered_df['log_return']
+        btc_returns = df['BTCUSDT']['log_return']
+        data = pd.DataFrame(
+            {'returns': returns, 'BTCUSDT Returns': btc_returns})
         color_dict = {'returns': 'red', 'BTCUSDT Returns': 'green'}
-        
+
         fig = make_subplots(rows=2, cols=1)
 
         for col in ['returns', 'BTCUSDT Returns']:
             display_name = f'{selected_asset} Returns' if col == 'returns' else col
-            fig.add_trace(go.Box(x=data[col], name=display_name, boxpoints='outliers',
-                                 marker_color=color_dict[col]), row=1, col=1)
-            fig.add_trace(go.Histogram(x=data[col], histnorm='probability density', 
-                                       name=display_name, nbinsx=50, opacity=0.75, marker_color=color_dict[col]),
-                                       row=2, col=1)
-            
+            fig.add_trace(go.Box(
+                            x=data[col], name=display_name, boxpoints='outliers',
+                            marker_color=color_dict[col]), row=1, col=1)
+            fig.add_trace(go.Histogram(
+                            x=data[col], histnorm='probability density',
+                            name=display_name, opacity=0.75,
+                            marker_color=color_dict[col]),
+                        row=2, col=1)
 
-        fig.update_layout(transition_duration=500, height=600, width=1500, title_text="Overlaid Histogram and Boxplot")
+        fig.update_layout(transition_duration=500, height=600,
+                        width=1500, title_text="Overlaid Histogram and Boxplot")
         fig.update_yaxes(title_text="Frequency", row=1, col=1)
         fig.update_yaxes(title_text="Value", row=2, col=1)
-       # fig = px.histogram(data, x='returns', y='returns_btc',
-                           
-                           #histnorm='probability density',
-                           #opacity=0.75, marginal='box')
-      #  fig.update_layout(transition_duration=500,
-                            #height=600,
-                            #title=f'{selected_asset} Return Histogram ')
     else:
         raise exceptions.PreventUpdate
 
     return fig
+
 
 @app.callback(
     Output('toggle-rangeslider', 'style'),
@@ -278,7 +303,8 @@ def update_slider_visibility(graph_type):
         return {'position': 'absolute', 'right': '80px', 'z-index': '999'}
     else:
         return {'display': 'none'}
-    
+
+
 @app.callback(
     Output('bottom-row', 'style'),
     Input('type-of-graph', 'value'))
@@ -288,6 +314,7 @@ def update_bottom_row_visibility(graph_type):
     else:
         return {'display': 'none'}
 
+
 @app.callback(
     Output('bottom-row-boxplot', 'style'),
     Input('type-of-graph', 'value'))
@@ -296,7 +323,8 @@ def update_bottom_row_visibility(graph_type):
         return {'right': '100px', 'z-index': '999'}
     else:
         return {'display': 'none'}
-    
+
+
 @app.callback(
     Output('descriptive-stats', 'children'),
     Output('var-model', 'children'),
@@ -307,9 +335,11 @@ def update_bottom_row_visibility(graph_type):
 def update_card_content(selected_asset, start_date, end_date):
     filtered_df = df[selected_asset]
     if start_date and end_date:
-        filtered_df = filtered_df.loc[(filtered_df.index >= start_date) & (filtered_df.index <= end_date)]
-    
-    returns = np.log(filtered_df['Close']/filtered_df['Close'].shift(1)).dropna()
+        filtered_df = filtered_df.loc[(filtered_df.index >= start_date) & (
+            filtered_df.index <= end_date)]
+
+    returns = np.log(filtered_df['Close'] /
+                     filtered_df['Close'].shift(1)).dropna()
     var_hist, var_normal, var_js = calculate_var(returns)
     return [[html.P(f'Average Daily Return: {round(returns.mean()*100, 2)}%'),
             html.P(f'Standard Deviation: {round(returns.std()*100, 2)}%'),
@@ -319,7 +349,7 @@ def update_card_content(selected_asset, start_date, end_date):
             [html.P(f'Historical VaR (95%): {round(var_hist*100, 2)}%'),
             html.P(f'Normal VaR (95%): {round(var_normal*100, 2)}%'),
             html.P(f'Johnsonsu VaR (95%): {round(var_js*100, 2)}%')
-            ]]
+             ]]
 
 
 if __name__ == '__main__':
