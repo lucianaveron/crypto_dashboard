@@ -8,8 +8,12 @@ import pandas as pd
 import scipy.stats as stats
 from scipy.stats import johnsonsu
 import boto3
+import os
 
-s3_client = boto3.client('s3')
+access_key = os.environ['AWS_ACCESS_KEY_ID']
+secret_key = os.environ['AWS_SECRET_ACCESS_KEY']
+s3_client = boto3.client('s3',aws_access_key_id=access_key, 
+                         aws_secret_access_key=secret_key)
 
 asset_list = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'ADAUSDT',
               'DOGEUSDT', 'TRXUSDT', 'SOLUSDT', 'LTCUSDT', 'DOTUSDT',
@@ -67,8 +71,8 @@ sidebar = html.Div(
 
 date_picker_ranger = dcc.DatePickerRange(
     id='date-picker-range',
-    min_date_allowed=df[list(df.keys())[0]].index[0],
-    max_date_allowed=df[list(df.keys())[0]].index[-1],
+    min_date_allowed=df['BTCUSDT'].index.min(),
+    max_date_allowed=df['BTCUSDT'].index.max(),
     className="custom-date-picker")
 
 reset_button = dbc.Button(
@@ -192,27 +196,26 @@ app.layout = html.Div([
          ])
 ])
 
-
 @app.callback(
-    [Output('date-picker-range', 'min_date_allowed'),
-     Output('date-picker-range', 'max_date_allowed'),
-     Output('date-picker-range', 'start_date'),
-     Output('date-picker-range', 'end_date')],
-    [Input('dropdown-select-asset', 'value'),
-     Input('reset-button', 'n_clicks')]
+    Output('date-picker-range', 'min_date_allowed'),
+    Output('date-picker-range', 'max_date_allowed'),
+    Output('date-picker-range', 'start_date'),
+    Output('date-picker-range', 'end_date'),
+    Input('dropdown-select-asset', 'value'),
+    Input('reset-button', 'n_clicks')
 )
-def update_date_picker(selected_asset, n_clicks):
+def update_date_minmax_picker(selected_asset, n_clicks):
     min_date = df[selected_asset].index.min()
-    max_date = df[selected_asset].index.max() 
+    max_date = df[selected_asset].index.max()
+    start_date = min_date
+    end_date = max_date 
 
     if n_clicks > 0:
         start_date = min_date
         end_date = max_date
-        return min_date, max_date, start_date, end_date
-    else:
-        raise exceptions.PreventUpdate
-
-
+    
+    return min_date, max_date, start_date, end_date
+        
 @app.callback(
     Output('graph', 'figure'),
     Input('dropdown-select-asset', 'value'),
@@ -222,9 +225,10 @@ def update_date_picker(selected_asset, n_clicks):
     Input('type-of-graph', 'value'))
 def update_figure(selected_asset, start_date, end_date, slider, graph_type):
     filtered_df = df[selected_asset]
+
     if start_date and end_date:
-        filtered_df = filtered_df.loc[(filtered_df.index >= start_date) & (
-            filtered_df.index <= end_date)]
+        filtered_df = filtered_df.loc[(filtered_df.index >= start_date) &
+                                   (filtered_df.index <= end_date)]
 
     if graph_type == 'candlestick':
         fig = go.Figure(data=[go.Candlestick(
@@ -238,6 +242,7 @@ def update_figure(selected_asset, start_date, end_date, slider, graph_type):
                           height=600,
                           title=f'{selected_asset} Candlestick Chart'
                           )
+        
     elif graph_type == 'histogram':
         returns = filtered_df['log_return']
         mu, sigma = stats.norm.fit(returns)
@@ -267,9 +272,15 @@ def update_figure(selected_asset, start_date, end_date, slider, graph_type):
 
     elif graph_type == 'comparative':
         returns = filtered_df['log_return']
-        btc_returns = df['BTCUSDT']['log_return']
-        data = pd.DataFrame(
-            {'returns': returns, 'BTCUSDT Returns': btc_returns})
+        returns = returns[~returns.index.duplicated(keep='first')]               
+        df_btc = df['BTCUSDT']
+        btc_returns = df_btc.loc[(df_btc.index >= start_date) &
+                            (df_btc.index <= end_date)]['log_return']
+        btc_returns = btc_returns[~btc_returns.index.duplicated(keep='first')]
+
+        data = pd.concat([returns, btc_returns], axis=1, 
+                         keys=['returns', 'BTCUSDT Returns']).dropna()
+
         color_dict = {'returns': 'red', 'BTCUSDT Returns': 'green'}
 
         fig = make_subplots(rows=2, cols=1)
@@ -308,7 +319,7 @@ def update_slider_visibility(graph_type):
 @app.callback(
     Output('bottom-row', 'style'),
     Input('type-of-graph', 'value'))
-def update_bottom_row_visibility(graph_type):
+def update_bottom_row_hist(graph_type):
     if graph_type == 'histogram':
         return {'right': '100px', 'z-index': '999'}
     else:
@@ -318,7 +329,7 @@ def update_bottom_row_visibility(graph_type):
 @app.callback(
     Output('bottom-row-boxplot', 'style'),
     Input('type-of-graph', 'value'))
-def update_bottom_row_visibility(graph_type):
+def update_bottom_row_comp(graph_type):
     if graph_type == 'comparative':
         return {'right': '100px', 'z-index': '999'}
     else:
@@ -353,4 +364,4 @@ def update_card_content(selected_asset, start_date, end_date):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0", debug=True, port=os.getenv('PORT', '8080'))
