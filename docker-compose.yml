@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  dash:
+    image: crypto_dashboard
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    build: 
+      context: .
+      dockerfile: ./dockerfile
+    ports:
+      - 8080:8080
