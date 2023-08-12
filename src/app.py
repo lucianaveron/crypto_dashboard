@@ -364,4 +364,4 @@ def update_card_content(selected_asset, start_date, end_date):
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", debug=True, port=os.getenv('PORT', '8080'))
+    app.run(host="0.0.0.0", debug=False, port=os.getenv('PORT', '8080'))
